@@ -1,0 +1,24 @@
+{
+  "name": "ego-vision-automation",
+  "private": true,
+  "type": "module",
+  "description": "Midscene.js 视觉驱动层：给 app-automation 提供 UI 用例的执行能力，结果以 JSON 交回 pytest 汇总。",
+  "scripts": {
+    "cases": "tsx src/cli.ts",
+    "list": "tsx src/cli.ts --list",
+    "typecheck": "tsc --noEmit",
+    "gen-pages": "tsx src/cli.ts --gen-pages",
+    "gen-pages:write": "tsx src/cli.ts --gen-pages --write",
+    "drift": "tsx src/cli.ts --check-drift"
+  },
+  "dependencies": {
+    "@midscene/android": "1.18.1",
+    "dotenv": "^16.4.5",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

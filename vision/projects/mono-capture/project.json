@@ -1,0 +1,12 @@
+{
+  "name": "mono-capture",
+  "title": "单目 Ego 采集 App（ApexCollect）",
+  "packageName": "com.apex.collect",
+  "appSourceDir": "../../../../src",
+  "appJson": "../../../../app.json",
+  "scheme": "apex-collect",
+  "casesDir": "cases",
+  "visionDir": "vision",
+  "pythonDir": "python",
+  "locatorsOut": "pages/ui_locators.py"
+}

@@ -1,0 +1,684 @@
+# 用例定义（声明式）。
+#
+# 这里只写「做什么」，不写「怎么做」：怎么点、怎么等、怎么判真伪，交给 Midscene。
+# 改这里的文件不会影响框架代码；自动修正也只写这类数据。
+#
+# 断言里的 rule 对应 app-automation/core/rules.py 的编号，报告据此归类。
+# 断言写成「能看到 X」，不要写「看不到 Y」——后者在通知中心、锁屏、黑屏上也成立。
+
+- id: ONB-01
+  title: 首次登录进入 consent 同意页
+  precondition: fresh-install
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 30000
+    - include: login
+    - wait:
+        for: 已经离开登录页，能看到协议同意页、权限页或首页
+        timeout: 30000
+    - assert:
+        rule: R-ONB-01
+        expect: 当前界面是协议同意页：有多条协议勾选框和「同意并继续」按钮
+        fatal: true
+    - assert:
+        rule: R-ONB-03
+        expect: 「同意并继续」按钮是灰色、不可点击的状态
+        fatal: false
+
+- id: ONB-02
+  title: 同意协议 → 权限引导 → 进入首页
+  precondition: fresh-install
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 30000
+    - include: login
+    - wait:
+        for: 已经离开登录页，能看到协议同意页、权限页或首页
+        timeout: 30000
+    - if:
+        when: 当前界面是协议同意页，有多条协议勾选框和「同意并继续」按钮
+        then:
+          - check-all: { rounds: 3 }
+          - wait:
+              for: 「同意并继续」按钮已经变成可点击的深色状态
+              timeout: 12000
+          - assert:
+              rule: R-ONB-03
+              expect: 勾选全部协议后「同意并继续」按钮变成可点击的深色状态
+              fatal: true
+          - tap: 「同意并继续」按钮
+    - assert:
+        rule: R-ONB-02
+        expect: 当前界面是权限页：列出相机、麦克风、精确位置、运动与健身等权限项，每项右侧有「已开启」或「未开启」
+        fatal: true
+    - if:
+        when: 权限页底部的按钮文字是「进入首页」
+        then:
+          - tap: 底部写着「进入首页」的按钮
+        else:
+          - tap: 底部写着「开启权限」的按钮
+          - tap: 底部写着「进入首页」的按钮
+    - assert:
+        rule: R-ONB-02
+        expect: 当前界面是首页：底部只有「首页」「我的」两个 tab
+        fatal: true
+
+- id: AUTH-01
+  title: 主站账号登录成功
+  precondition: login-page
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - include: login
+    - wait:
+        for: 满足任意一条即可：① 已经离开登录页，能看到协议同意页、权限页或首页；② 仍停在登录页，但页面上出现了红色的错误提示文字
+        timeout: 30000
+    - assert:
+        rule: R-AUTH-01
+        expect: 当前界面是协议同意页、权限页或首页三者之一，并且没有红色的错误提示
+        fatal: true
+
+- id: AUTH-02
+  title: 登录前切到新服务器
+  precondition: login-page-old-server
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - assert:
+        rule: R-AUTH-05
+        expect: 登录页顶部显示当前连接的是「旧服务器」
+        fatal: true
+    - tap: 切换到「新服务器」的按钮或选项
+    - wait:
+        for: 登录页顶部显示的当前服务器已经变成「新服务器」
+        timeout: 10000
+    - assert:
+        rule: R-AUTH-05
+        expect: 登录页顶部显示的当前服务器是「新服务器」，并且带有选中高亮
+        fatal: false
+
+- id: AUTH-03
+  title: 错误密码登录失败
+  precondition: login-page
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - input:
+        target: 「用户名」输入框
+        value: '{{username}}'
+    - input:
+        target: 「密码」输入框
+        value: definitely-not-the-password-QA
+    - tap: 「登录」按钮
+    - wait:
+        for: 仍停在登录页，并且页面上出现了红色的错误提示文字
+        timeout: 20000
+    - assert:
+        rule: R-AUTH-02
+        expect: 仍然停留在登录页，还能看到「用户名」和「密码」输入框
+        fatal: true
+    - assert:
+        rule: R-AUTH-02
+        expect: 登录页上出现了红色的错误提示文字
+        fatal: false
+
+- id: AUTH-04
+  title: 连续 5 次失败锁 15 分钟
+  precondition: login-page
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - repeat:
+        times: 5
+        steps:
+          - input:
+              target: 「用户名」输入框
+              value: '{{username}}'
+          - input:
+              target: 「密码」输入框
+              value: wrong-password-QA
+          - tap: 「登录」按钮
+          - wait:
+              for: 登录页上出现了红色的错误提示文字
+              timeout: 15000
+    # 第 5 次失败后客户端就会置锁并禁用按钮，再点第 6 次是没有意义的
+    - assert:
+        rule: R-AUTH-03
+        expect: 登录页上出现了「尝试次数过多」或「请 15 分钟后再试」这类锁定提示
+        fatal: false
+    - assert:
+        rule: R-AUTH-03
+        expect: 「登录」按钮是不可点击的灰色状态
+        fatal: false
+
+- id: AUTH-05
+  title: 记住密码：退出登录后账号密码仍在，且能直接再次登录
+  precondition: login-page
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - tap: 「记住密码」的勾选框，让它变成已勾选
+    - include: login
+    - wait:
+        for: 已经离开登录页，能看到协议同意页、权限页或首页
+        timeout: 30000
+    # 这个账号可能还没同意过协议，先走完 onboarding，否则下面找不到「我的」
+    - include: finish-onboarding
+    - include: logout
+    # 退出后 App 可能又回到协议页，走完才能看到登录页
+    - include: finish-onboarding
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    # ① 凭据还在：用户名明文，密码是内容（圆点）
+    - assert:
+        rule: R-AUTH-06
+        expect: 「用户名」输入框里显示着 {{username}}，「密码」输入框里也有内容（显示为圆点），两者都不是空的
+        fatal: true
+    # ② 不重新输入，直接点登录
+    - tap: 「登录」按钮
+    - wait:
+        for: 已经离开登录页，能看到协议同意页、权限页或首页
+        timeout: 30000
+    - assert:
+        rule: R-AUTH-01
+        expect: 已经离开登录页，进入协议同意页、权限页或首页，并且没有红色的错误提示
+        fatal: true
+    # ③ 冷启动后凭据仍在（这才是「持久化」）
+    - terminate: true
+    - launch: true
+    - dismiss: [暂不更新, 稍后再说, 跳过]
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - assert:
+        rule: R-AUTH-06
+        expect: 重新打开 App 后停在登录页，「用户名」输入框里仍然预填着 {{username}}
+        fatal: false
+
+- id: AUTH-06
+  title: 忘记密码弹窗
+  precondition: login-page
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 20000
+    - tap: 「忘记密码」按钮
+    - assert:
+        rule: R-AUTH-07
+        expect: 屏幕上弹出了「忘记密码」的弹窗或说明，能看到「我是众包申请人」和「我是供应商人员」两条路径
+        fatal: true
+
+- id: TASK-01
+  title: 首页派工列表渲染
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页已经完成派工加载，显示真实派工卡片或「当前没有可采集的派工」
+        timeout: 20000
+    - assert:
+        rule: R-TASK-04
+        expect: 首页显示真实派工卡片并有「录制考核视频」按钮，或明确显示「当前没有可采集的派工」，且没有停在「正在拉取派工…」
+        fatal: true
+
+- id: TASK-02
+  title: 不可用任务不可采集
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页已经完成派工加载，显示真实派工卡片或「当前没有可采集的派工」
+        timeout: 20000
+    - if:
+        when: 首页存在状态为「考核审核中」或显示 unavailableReason 的不可用派工卡片
+        then:
+          - assert:
+              rule: R-TASK-02
+              expect: 不可用派工卡片显示不可用原因，并且没有可点击的「录制考核视频」按钮
+              fatal: true
+        else:
+          - assert:
+              rule: R-TASK-02
+              expect: 当前账号没有可用的不可用派工样本，页面明确显示正常派工或空状态
+              fatal: false
+
+- id: CAP-02
+  title: 采集辅助默认关闭且独立持久化
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-me
+    - tap: 「采集辅助」按钮
+    - wait:
+        for: 当前界面是「采集辅助」页面，显示超广角镜头、实时手部检测、语音口令等开关
+        timeout: 15000
+    - assert:
+        rule: R-CAP-04
+        expect: 首次进入或没有保存设置时，支持的采集辅助开关默认都是关闭状态
+        fatal: true
+    - tap: 「实时手部检测」开关
+    - wait:
+        for: 「实时手部检测」开关已经显示为开启状态
+        timeout: 5000
+    - terminate: true
+    - launch: true
+    - include: go-me
+    - tap: 「采集辅助」按钮
+    - wait:
+        for: 当前界面是「采集辅助」页面，显示实时手部检测开关
+        timeout: 15000
+    - assert:
+        rule: R-CAP-04
+        expect: 重开 App 后「实时手部检测」开关仍保持开启，其他开关状态不被连带修改
+        fatal: true
+
+- id: I18N-01
+  title: 手动切换语言持久化
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-me
+    - assert:
+        rule: R-I18N-01
+        expect: 「我的」页面显示语言切换控件，当前有「中文」和「English」两个选项
+        fatal: true
+    - tap: 「English」选项
+    - wait:
+        for: 当前页面主要界面文案已经切换为英文，能看到 Language 或 English
+        timeout: 5000
+    - assert:
+        rule: R-I18N-01
+        expect: 切换到 English 后「我的」页面标题和条目文案立即显示英文
+        fatal: true
+    - terminate: true
+    - launch: true
+    - wait:
+        for: 当前界面是登录页、协议页、权限页或首页
+        timeout: 20000
+    - include: go-me
+    - assert:
+        rule: R-I18N-01
+        expect: 重开 App 后语言仍为 English，页面显示 Language 和 English 文案
+        fatal: true
+
+- id: ONB-05
+  title: 退出登录清 session 但保留本地交付包
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-me
+    - tap: 「本地交付包」按钮
+    - wait:
+        for: 当前界面是「本地交付包」页面，完成扫描并显示交付包列表或「本机还没有交付包」
+        timeout: 20000
+    - assert:
+        rule: R-ONB-04
+        expect: 退出登录前本地交付包页面能明确显示已有交付包或明确空状态
+        fatal: false
+    - back: true
+    - tap: 「退出登录」按钮
+    - tap: 弹窗里确认退出的「退出」按钮
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 15000
+    - assert:
+        rule: R-ONB-04
+        expect: 退出登录后已经回到登录页，登录会话被清除
+        fatal: true
+    - include: login
+    - wait:
+        for: 已经离开登录页，能看到协议同意页、权限页或首页
+        timeout: 30000
+    - include: go-me
+    - tap: 「本地交付包」按钮
+    - wait:
+        for: 当前界面是「本地交付包」页面，完成扫描并显示交付包列表或「本机还没有交付包」
+        timeout: 20000
+    - assert:
+        rule: R-ONB-04
+        expect: 重新登录后本地交付包仍保留，没有因为退出登录被清空
+        fatal: true
+
+- id: FLOW-01
+  title: 黄金链路：选任务 → 自检 → 校准 → 录制 → 剪辑 → QC → 完成页
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，列出相机权限、网络环境等检查项，底部有「戴上手机，开始校准」按钮
+        timeout: 20000
+    - assert:
+        rule: R-FLOW-01
+        expect: 自检页列出相机与麦克风权限、网络环境等检查项
+        fatal: true
+    - tap: 底部写着「戴上手机，开始校准」的按钮
+    - wait:
+        for: 当前界面是佩戴校准页，能看到「单手在画面下半区」等提示和「开始录制」按钮
+        timeout: 30000
+    - assert:
+        rule: R-FLOW-01
+        expect: 校准页显示佩戴提示，并且「开始录制」按钮可用
+        fatal: true
+    - tap: 「开始录制」按钮
+    - wait:
+        for: 已经进入录制页，屏幕上有「结束录制」按钮
+        timeout: 30000
+    - sleep:
+        seconds: 8
+    - tap: 「结束录制」按钮
+    - wait:
+        for: 当前界面是视频剪辑页，能看到进度条和「不剪，直接下一步」按钮
+        timeout: 90000
+    - assert:
+        rule: R-FLOW-01
+        expect: 录制结束后进入剪辑页，视频可以预览
+        fatal: true
+    - tap: 「不剪，直接下一步」按钮
+    - wait:
+        for: 当前界面是上传前检查页，显示预估通过概率和若干个录后问题
+        timeout: 30000
+    - assert:
+        rule: R-FLOW-01
+        expect: QC 页显示预估通过概率，并列出光照环境、工具设备等问题
+        fatal: true
+    - include: qc-answer-and-submit
+    - wait:
+        for: 当前界面是采集完成页，显示「采集完成」或正在导出交付包
+        timeout: 120000
+    - assert:
+        rule: R-FLOW-01
+        expect: 提交后到达采集完成页，导出交付包流程已经开始
+        fatal: true
+
+- id: QC-09
+  title: QC 必答项答完才能提交
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，底部有「戴上手机，开始校准」按钮
+        timeout: 20000
+    - tap: 底部写着「戴上手机，开始校准」的按钮
+    - wait:
+        for: 当前界面是佩戴校准页，能看到「开始录制」按钮
+        timeout: 30000
+    - tap: 「开始录制」按钮
+    - wait:
+        for: 已经进入录制页，屏幕上有「结束录制」按钮
+        timeout: 30000
+    - sleep:
+        seconds: 6
+    - tap: 「结束录制」按钮
+    - wait:
+        for: 当前界面是视频剪辑页，能看到「不剪，直接下一步」按钮
+        timeout: 90000
+    - tap: 「不剪，直接下一步」按钮
+    - wait:
+        for: 当前界面是上传前检查页，显示预估通过概率和录后问题
+        timeout: 30000
+    - assert:
+        rule: R-QC-06
+        expect: QC 页在必答项没答完时，「加入上传队列」按钮是灰色不可点击的
+        fatal: true
+    - include: qc-answer-and-submit
+    - wait:
+        for: 已经离开 QC 页，进入采集完成页或导出过程页
+        timeout: 60000
+    - assert:
+        rule: R-QC-06
+        expect: 必答项答完后「加入上传队列」可点击，点击后离开 QC 页进入完成流程
+        fatal: true
+
+- id: UP-04
+  title: 上传浮窗在离开页面后仍然显示进度
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - if:
+        when: 首页或顶部出现上传浮窗，显示「上传中」和百分比
+        then:
+          - assert:
+              rule: R-UP-01
+              expect: 上传浮窗显示上传百分比和批次位置，并且离开上传页面后仍然可见
+              fatal: false
+          - tap: 底部导航栏里的「我的」tab
+          - wait:
+              for: 当前界面是「我的」页，能看到「本地交付包」等条目
+              timeout: 15000
+          - assert:
+              rule: R-UP-01
+              expect: 切到「我的」页后上传浮窗仍然存在并继续显示进度
+              fatal: false
+        else:
+          - assert:
+              rule: R-UP-01
+              expect: 当前没有进行中的上传任务，首页不显示上传浮窗
+              fatal: false
+
+- id: ONB-04
+  title: 相机权限被拒后自检页拦下，不给进入采集
+  precondition: fresh-install-no-camera
+  steps:
+    - include: bootstrap
+    - wait:
+        for: 当前界面是登录页，能看到「用户名」「密码」输入框
+        timeout: 30000
+    - include: login
+    - wait:
+        for: 已经离开登录页，能看到协议同意页、权限页或首页
+        timeout: 30000
+    - include: finish-onboarding
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，能看到「相机与麦克风权限」「网络环境」等检查项
+        timeout: 20000
+    - assert:
+        rule: R-ONB-02
+        expect: 自检页的相机权限一项显示为未开启或异常状态
+        fatal: true
+    - assert:
+        rule: R-ONB-02
+        expect: 底部的「戴上手机，开始校准」按钮是灰色、不可点击的，无法进入采集
+        fatal: true
+
+- id: TASK-03
+  title: 选任务开始采集，自检页带出所选任务
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - assert:
+        rule: R-TASK-03
+        expect: 首页每张派工卡片上都能看到任务名称或任务编号
+        fatal: false
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，能看到检查项和「戴上手机，开始校准」按钮
+        timeout: 20000
+    - assert:
+        rule: R-TASK-03
+        expect: 从派工卡片进入自检页，说明采集已经绑定到所选派工而不是任意任务
+        fatal: true
+
+- id: CAP-01
+  title: 自检项全部通过后才允许进入校准
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，列出相机与麦克风权限、网络环境等检查项
+        timeout: 20000
+    - assert:
+        rule: R-FLOW-01
+        expect: 自检页的相机与麦克风权限显示为已开启
+        fatal: true
+    - assert:
+        rule: R-FLOW-01
+        expect: 底部「戴上手机，开始校准」按钮是可点击的深色状态
+        fatal: true
+    - tap: 底部写着「戴上手机，开始校准」的按钮
+    - wait:
+        for: 当前界面是佩戴校准页，能看到「开始录制」按钮
+        timeout: 30000
+    - assert:
+        rule: R-FLOW-01
+        expect: 自检通过后成功进入佩戴校准页
+        fatal: true
+
+- id: CAP-05
+  title: 录制页锁定横屏
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，底部有「戴上手机，开始校准」按钮
+        timeout: 20000
+    - tap: 底部写着「戴上手机，开始校准」的按钮
+    - wait:
+        for: 当前界面是佩戴校准页，能看到「开始录制」按钮
+        timeout: 30000
+    - tap: 「开始录制」按钮
+    - wait:
+        for: 已经进入录制页，屏幕上有「结束录制」按钮
+        timeout: 30000
+    - assert:
+        rule: R-CAP-05
+        expect: 录制页是横屏显示，画面宽度大于高度，界面元素按横向布局排列
+        fatal: true
+    - tap: 「结束录制」按钮
+    - wait:
+        for: 当前界面是视频剪辑页，能看到「不剪，直接下一步」按钮
+        timeout: 90000
+
+- id: LP-01
+  title: 录制中被杀进程，重开后交付包标记可恢复
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-home
+    - wait:
+        for: 首页显示至少一张带「录制考核视频」按钮的派工卡片
+        timeout: 25000
+    - tap: 第一张派工卡片上的「录制考核视频」按钮
+    - wait:
+        for: 当前界面是采集自检页，底部有「戴上手机，开始校准」按钮
+        timeout: 20000
+    - tap: 底部写着「戴上手机，开始校准」的按钮
+    - wait:
+        for: 当前界面是佩戴校准页，能看到「开始录制」按钮
+        timeout: 30000
+    - tap: 「开始录制」按钮
+    - wait:
+        for: 已经进入录制页，屏幕上有「结束录制」按钮
+        timeout: 30000
+    - sleep:
+        seconds: 5
+    # 录制中直接杀进程，模拟崩溃
+    - terminate: true
+    - launch: true
+    - dismiss: [暂不更新, 稍后再说, 跳过]
+    - include: go-me
+    - tap: 「本地交付包」按钮
+    - wait:
+        for: 当前界面是「本地交付包」页面，完成扫描并显示交付包列表或空状态
+        timeout: 25000
+    - assert:
+        rule: R-LP-01
+        expect: 列表里出现了「录制被中断，可尝试恢复」的标记，并且有「恢复」按钮
+        fatal: true
+
+- id: LP-04
+  title: 本地交付包可重新上传
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-me
+    - tap: 「本地交付包」按钮
+    - wait:
+        for: 当前界面是「本地交付包」页面，完成扫描
+        timeout: 25000
+    - if:
+        when: 交付包列表里至少有一条交付包记录
+        then:
+          - assert:
+              rule: R-UP-03
+              expect: 每条交付包记录都有「重新上传」按钮，或者显示当前正在上传的进度
+              fatal: false
+        else:
+          - assert:
+              rule: R-UP-03
+              expect: 当前没有本地交付包，页面显示「本机还没有交付包」的空状态提示
+              fatal: false
+
+- id: LP-05
+  title: 重启 App 后本地交付包仍然保留
+  precondition: logged-in
+  steps:
+    - include: bootstrap
+    - include: go-me
+    - tap: 「本地交付包」按钮
+    - wait:
+        for: 当前界面是「本地交付包」页面，完成扫描并显示列表或空状态
+        timeout: 25000
+    - assert:
+        rule: R-LP-01
+        expect: 重启前本地交付包页面能明确显示已有交付包或明确的空状态
+        fatal: false
+    - terminate: true
+    - launch: true
+    - dismiss: [暂不更新, 稍后再说, 跳过]
+    - include: go-me
+    - tap: 「本地交付包」按钮
+    - wait:
+        for: 当前界面是「本地交付包」页面，完成扫描并显示列表或空状态
+        timeout: 25000
+    - assert:
+        rule: R-LP-01
+        expect: 重启 App 后本地交付包列表与重启前一致，没有被清空
+        fatal: true

@@ -1,0 +1,19 @@
+# ===== App 真机自动化骨架依赖 =====
+# 与 qa-automation 接口层保持一致（Python + pytest），单人可维护。
+
+# Appium 客户端（安卓 UiAutomator2 / iOS XCUITest 共用）
+Appium-Python-Client>=4.0.0
+selenium>=4.20.0
+
+# 测试框架
+pytest>=8.0.0
+pytest-xdist>=3.6.0
+
+# 配置读取（.env）
+python-dotenv>=1.0.0
+
+# 接口断言辅助（对齐接口层，复用 requests）
+requests>=2.31.0
+
+# UI 视觉回归（截图对比）
+Pillow>=10.0.0

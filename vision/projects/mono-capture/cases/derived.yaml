@@ -1,0 +1,296 @@
+# 由 `npx tsx src/cli.ts --derive` 从源码生成，请勿手改。
+# 要改：把需要的用例挪进 cases.yaml，这里的重复项会被自动跳过；
+# 或者直接删掉本文件重新生成。
+#
+# 这些用例只验「页面能打开、不白屏、关键文案还在」，不验业务对错。
+# 执行靠深链 + 控件树，不调模型，几秒钟一页。
+
+- id: RT-ABOUT
+  title: 'about（/about）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/about.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'about'
+        expect-any:
+          - '当前运行'
+          - '原生版本'
+          - 'JS 版本'
+          - '随安装包内置'
+
+- id: RT-ARKIT_PREFLIGHT
+  title: 'arkit-preflight（/arkit-preflight）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/arkit-preflight.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'arkit-preflight'
+        expect-any:
+          - '录制前标定'
+          - '正在启动 ARKit…'
+          - '已获取内参，进入录制…'
+
+- id: RT-CAPTURE_OPTIONS
+  title: 'capture-options（/capture-options）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/capture-options.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'capture-options'
+        expect-any:
+          - '超广角镜头'
+          - '实时手部检测'
+          - '语音口令'
+          - 'ARKit 相机标定'
+
+- id: RT-CONSENT
+  title: 'consent（/consent）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/consent.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'consent'
+        expect-any:
+          - '协议与授权'
+          - '查看全文'
+
+- id: RT-DONE
+  title: 'done（/done）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/done.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'done'
+        expect-any:
+          - '缺少 episode 草稿'
+          - '采集完成'
+          - '交付包'
+          - '已导出完整目录结构'
+
+- id: RT-EARNINGS
+  title: 'earnings（/earnings）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/(tabs)/earnings.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'earnings'
+        expect-any:
+          - '累计已打款'
+
+- id: RT-HOME
+  title: 'home（/home）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/(tabs)/home.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'home'
+        expect-any:
+          - '刷新任务'
+          - '正在拉取派工…'
+
+- id: RT-LEGAL_DOC
+  title: 'legal-doc（/legal-doc）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/legal-doc.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'legal-doc'
+        expect-any:
+          - '文档地址（后台下发）'
+
+- id: RT-LOCAL_PACKAGES
+  title: 'local-packages（/local-packages）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/local-packages.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'local-packages'
+        expect-any:
+          - '未配置上传 API 或未登录采集员账号'
+          - '刷新列表'
+          - '无派工绑定（需手动点选）'
+          - '缺视频文件'
+
+- id: RT-LOGIN
+  title: 'login（/login）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/login.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'login'
+        expect-any:
+          - '用户名'
+          - '记住密码'
+          - '忘记密码'
+          - 'DEV：用 .env token 进入'
+
+- id: RT-ME
+  title: 'me（/me）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/(tabs)/me.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'me'
+        expect-any:
+          - '退出登录'
+          - '我的项目'
+          - '服务器'
+          - '剪辑条调试'
+
+- id: RT-PERMISSIONS
+  title: 'permissions（/permissions）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/permissions.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'permissions'
+        expect-any:
+          - '语音口令（开始、暂停、结束）'
+          - '语音口令已关闭，当前录制不需要麦克风'
+          - '长按重置登录（DEV）'
+
+- id: RT-PRECHECK
+  title: 'precheck（/precheck）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/precheck.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'precheck'
+        expect-any:
+          - '已开启（语音口令关闭，无需麦克风）'
+          - '相机与麦克风权限'
+          - '相机权限'
+          - '网络环境'
+
+- id: RT-PROJECTS
+  title: 'projects（/projects）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/(tabs)/projects.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'projects'
+        expect-any:
+          - '这个任务现在不需要考核'
+          - '演示：任务详情（正式录制）'
+          - '考核已通过'
+          - '考核通过后就可以在这里开始录制'
+
+- id: RT-QC
+  title: 'qc（/qc）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/qc.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'qc'
+        expect-any:
+          - '回首页'
+          - '上传前检查'
+          - '预估通过概率'
+          - '看起来不错，可以上传。'
+
+- id: RT-RECORD
+  title: 'record（/record）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/record.tsx 生成；只验页面能打开、文案还在，不验业务；本页没有独有文案，期望较弱，审核时重点看'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'record'
+        expect-any:
+          - '录制仍在进行 · 轻触退出黑屏'
+
+- id: RT-TRIM
+  title: 'trim（/trim）能正常打开'
+  precondition: logged-in
+  order: normal
+  review:
+    status: draft
+    source: code
+    note: '依据 src/app/trim.tsx 生成；只验页面能打开、文案还在，不验业务'
+  steps:
+    - launch: true
+    - check-route:
+        route: 'trim'
+        expect-any:
+          - '视频已失效'
+          - '重新录制'
+          - '不剪，直接下一步'

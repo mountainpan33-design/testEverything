@@ -1,0 +1,118 @@
+# 49 条用例里，不在 cases.yaml 的那些，都在这里登记并说明归属。
+#
+# 为什么必须登记：不写清楚「这条由谁覆盖」，它就会在报告里凭空消失——
+# 看起来全绿，其实从没测过。每条都标了 note：是被别层覆盖、需要旧版本，还是只能人工。
+
+# ---------------- 需要特定版本 / 环境，暂时做不了 ----------------
+- id: ONB-03
+  title: consent 版本升级强制重新同意
+  note: 需要构造 consentVersion 落后于 CURRENT_CONSENT_VERSION 的状态——纯 UI 触发不了，要装旧版 App 同意一次再升级。等有版本更新时测。
+
+# ---------------- 已被别的用例覆盖，保留编号供追溯 ----------------
+- id: TASK-05
+  title: 空任务列表状态
+  note: 已由 TASK-01 覆盖——TASK-01 的断言同时接受「有派工卡片」和「明确显示当前没有可采集的派工」。
+
+- id: I18N-02
+  title: 手动切换语言持久化
+  note: 已由 I18N-01 覆盖——I18N-01 包含切换 English、立即生效、杀进程重开仍为 English 三步。
+
+# ---------------- 产物层覆盖（tests/test_capture_flow.py + verification/artifacts.py） ----------------
+- id: CAP-04
+  title: 录制产生视频 + IMU + 传感器数据
+  note: 产物层覆盖——FLOW-01 负责走完录制流程，产物由 verification/artifacts.py 校验（R-CAP-01：各文件非空且 csv 有数据行）。
+
+- id: CAP-06
+  title: 录制结束原因记录
+  note: 产物层覆盖——结束原因写在 metadata.client_qc.recording_end_cause，由 artifacts.py 读取校验。
+
+- id: QC-01
+  title: 录制后裁剪导出写官方树
+  note: 产物层覆盖——tests/test_capture_flow.py::test_golden_package_structure。
+
+- id: QC-02
+  title: 合法包无 blocking 问题可上传
+  note: 纯函数层覆盖——src/packageValidation.ts 的单测。
+
+- id: QC-03
+  title: metadata 缺 task_id / episode_uuid → blocking
+  note: 产物层覆盖——tests/test_capture_flow.py::test_golden_metadata_identity。
+
+- id: QC-04
+  title: JSON 无效 / 截断 → blocking
+  note: 纯函数层覆盖——packageValidation 单测。
+
+- id: QC-05
+  title: CSV 只有表头 / 缺列 → blocking
+  note: 产物层覆盖——tests/test_capture_flow.py::test_golden_sensor_series_have_rows；artifacts.py 的 R-CAP-01 也会抓到只有表头的 csv。
+
+- id: QC-06
+  title: 视频缺 ftyp 头 → blocking
+  note: 产物层覆盖——tests/test_capture_flow.py::test_golden_video_is_mp4。
+
+- id: QC-07
+  title: GPS 占位 {0,0}+Unknown/XX → blocking 拦截
+  note: 产物层覆盖——tests/test_capture_flow.py::test_golden_gps_placeholder_consistency。
+
+- id: QC-08
+  title: 缺失 camera.csv / imu.csv / pose.csv / calibration → warning 不阻塞
+  note: 纯函数层覆盖——packageValidation 的缺失/损坏分级判定单测。
+
+- id: TASK-04
+  title: 上传绑定在采集时选定的 assignment
+  note: 接口层覆盖——R-UP-03 由 pytest 接口断言校验 upload 记录上的 assignmentId。
+
+- id: UP-01
+  title: package 协议上传走通
+  note: 接口层覆盖——CollectorClient 三步协议（create package → create upload → complete）+ artifacts.py 读回校验。
+
+- id: UP-02
+  title: fileName 只传 basename（带 / 被拒）
+  note: 纯函数层覆盖——uploadBinding 的 basename 归一化单测。
+
+- id: UP-03
+  title: 3 并发 + 字节加权进度
+  note: 纯函数层覆盖——上传队列的并发与进度计算单测。
+
+- id: UP-05
+  title: 重传重新 arm 已完成 / 失败 job
+  note: 产物层覆盖——LP-04 验界面入口，队列状态由 uploadQueue 单测覆盖。
+
+- id: UP-06
+  title: STS 过期刷新凭证
+  note: 接口层覆盖——需要构造凭证过期，靠 CollectorClient 的 credentials 刷新路径测。
+
+- id: UP-07
+  title: iOS bigint vs Android number 进度
+  note: 纯函数层覆盖——Android 双端进度归一化单测；iOS 侧待真机。
+
+- id: UP-08
+  title: durationSeconds 字段向后兼容
+  note: 接口层覆盖——上传请求可选字段，由 CollectorClient 的请求构造断言覆盖。
+
+- id: LP-02
+  title: 恢复 promote headcam + densify camera.csv
+  note: 产物层覆盖——恢复后包内 camera.csv 行数与时长对齐，由 artifacts.py 的 R-QC-05 校验。
+
+- id: LP-03
+  title: 恢复后真实 IMU 仅 sensors_live 有 spill 才有
+  note: 产物层覆盖——恢复包里 imu.csv 是真实数据还是只有表头，由 artifacts.py 的 R-CAP-01 校验。
+
+# ---------------- 只能人工（当前无法自动化） ----------------
+- id: CAP-03
+  title: 手检测关闭时卸载 FrameOutput、保留核心视频/IMU
+  note: 需要读原生层 FrameOutput 挂载状态，视觉层和产物层都拿不到；由开发日志确认，暂人工。
+
+- id: CAP-07
+  title: 录制中 AVCapture 被抢占（-11818）
+  note: >-
+    中断识别逻辑由 src/__tests__/recordingEndCause-test.ts 覆盖（flags an AVCapture interruption）；
+    真实的 -11818 抢占要在录制中用另一个 App 抢相机，自动化难稳定复现，人工验证一次即可。
+
+- id: CAP-08
+  title: 录制中保持唤醒
+  note: 需要长时间盯着屏幕状态判定，可用 adb dumpsys power + 人工确认；暂人工。
+
+- id: CAP-09
+  title: 语音口令 KWS 命中开始录制
+  note: 需要真实说话触发语音识别，无法稳定自动化；人工按发版节奏测。

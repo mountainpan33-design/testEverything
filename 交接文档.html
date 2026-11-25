@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>交接文档 · Ego 采集 App 自动化</title>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;padding:32px 20px 80px;background:#f5f7fb;color:#18222d;
+  font:15px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}
+.sub{color:#63758b;font-size:13px;margin-bottom:22px}
+h2{font-size:19px;margin:34px 0 10px;padding-bottom:6px;border-bottom:1px solid #e3e6ea}
+h3{font-size:15.5px;margin:20px 0 8px}
+p{margin:10px 0}
+ul,ol{margin:8px 0;padding-left:22px}
+li{margin:4px 0}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eef1f4;
+  border-radius:4px;padding:1px 5px;font-size:13px}
+pre{background:#1e2530;color:#e6edf3;border-radius:8px;padding:12px 14px;overflow:auto;
+  font-size:13px;line-height:1.6}
+pre code{background:none;color:inherit;padding:0}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e3e6ea;
+  border-radius:8px;overflow:hidden;margin:10px 0;table-layout:fixed}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #eef1f4;
+  font-size:13.5px;vertical-align:top;word-break:break-word}
+th{background:#f8faff;color:#4d6279;font-weight:500;font-size:12.5px}
+tr:last-child td{border-bottom:0}
+.box{background:#fff;border:1px solid #e3e6ea;border-radius:10px;padding:14px 18px;margin:14px 0}
+.warn{background:#fff8e6;border:1px solid #f0dca8;border-radius:10px;padding:12px 16px;margin:14px 0;color:#7a5300}
+.warn strong{color:#a04000}
+.danger{background:#fdeaea;border:1px solid #f0c4c4;border-radius:10px;padding:12px 16px;margin:14px 0;color:#8a2020}
+.ok{background:#eef9f2;border:1px solid #c9e7d5;border-radius:10px;padding:12px 16px;margin:14px 0;color:#12663a}
+.mono{font-family:ui-monospace,Menlo,monospace}
+.muted{color:#7a828d;font-size:13px}
+.tag{display:inline-block;font-size:11px;border-radius:4px;padding:1px 7px;
+  background:#f1f3f5;color:#5b6472;margin-right:6px}
+.tag.red{background:#fdeaea;color:#a02020}
+.tag.amber{background:#fff4e6;color:#8a4b00}
+.tag.green{background:#e7f6ec;color:#12663a}
+ol.check{list-style:none;padding-left:0}
+ol.check li::before{content:"☐ ";color:#8a929c;font-weight:700}
+ol.check li{margin:6px 0}
+footer{color:#8b929c;font-size:12px;margin-top:36px;line-height:1.9;border-top:1px solid #e3e6ea;padding-top:14px}
+@media print{body{background:#fff;padding:0}.wrap{max-width:none}pre{white-space:pre-wrap}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>交接文档 · 单目 Ego 采集 App 自动化</h1>
+<div class="sub">
+  对象：要接手这套自动化的同学 · 目标机器：一台全新的 Mac（或已在另一台机器上重新克隆）<br>
+  范围：<span class="mono">app-automation/</span> 全部三层（接口 / 单元 / 视觉）<br>
+  写于 2026-11-25
+</div>
+
+<div class="warn">
+<strong>接手前先看这一节，30 秒判断现在能不能跑。</strong><br>
+这套东西的代码是完整的，但<b>当前测试账号不可用</b>（<span class="mono">.env</span> 里的 <span class="mono">QA_USERNAME=pss2</span>
+登录报「账号或密码错误」）。换到新机器后，你把账号填对，才能跑通视觉层。另外有 4 项修复改完还没在真机上验证过，
+详见 <a href="#known">第 8 节</a>。除此之外，接口层、单元层、门禁测试不依赖账号，可以立刻跑。
+</div>
+
+<h2 id="what">1. 它是什么</h2>
+
+<p>一套跑在真机上的 App 自动化测试，覆盖三层：</p>
+
+<table>
+<tr><th style="width:90px">层</th><th style="width:150px">跑在哪</th><th>测什么</th><th style="width:70px">条数</th></tr>
+<tr><td>接口</td><td>pytest + requests</td><td>登录、鉴权、任务接口的返回结构</td><td>6</td></tr>
+<tr><td>单元</td><td>jest（App 自己的 <span class="mono">src/__tests__</span>）</td><td>纯函数：上传队列、进度计算、QC 指标</td><td>14</td></tr>
+<tr><td>视觉</td><td>Midscene.js + adb，驱动真机</td><td>界面流程：登录、引导、采集、QC、上传</td><td>40（23 手写 + 17 源码派生）</td></tr>
+</table>
+
+<p>另外有 2 条由其他用例覆盖、4 条只能人工、1 条等版本，合计对应测试设计清单里的 <b>50 条用例</b>。
+50 是设计清单的条数，视觉层实际执行 40 条，两者不是一回事，看报告时别混。</p>
+
+<p>一条命令 <span class="mono">./go.sh</span> 跑完三层，合并成一份 HTML 报告。</p>
+
+<h2 id="transfer">2. 转移清单：带什么，不带什么</h2>
+
+<div class="danger">
+<strong>这个目录没有被 git 跟踪。</strong>在仓库根执行 <span class="mono">git ls-files app-automation</span> 是空的，
+所以<b>不能靠 git clone 带走</b>，必须整个目录拷贝。下面的排除项要在拷贝时手动去掉。
+</div>
+
+<h3>必须带走</h3>
+<table>
+<tr><th style="width:220px">路径</th><th>内容</th></tr>
+<tr><td><span class="mono">app-automation/</span> 下除下列排除项之外的全部</td><td>三层源码、用例、脚本、文档。<span class="mono">.py</span> 约 5700 行，<span class="mono">.ts</span> 约 5400 行</td></tr>
+<tr><td><span class="mono">core/ tests/ pages/ verification/ apis/ config/ utils/ tools/ reporting/</span></td><td>接口层与门禁</td></tr>
+<tr><td><span class="mono">vision/src/ vision/cases/ vision/package.json</span></td><td>视觉层三层架构与全部用例</td></tr>
+<tr><td><span class="mono">go.sh setup.sh install_app.sh</span></td><td>三个入口脚本，<b>拷贝后要 <span class="mono">chmod +x</span></b></td></tr>
+<tr><td><span class="mono">*.md</span>（含 <span class="mono">自动化排障手册.md</span>、<span class="mono">vision/README.md</span>）</td><td>排障方法与设计说明，比代码更值钱</td></tr>
+<tr><td><span class="mono">screenshots/</span> 里的基线图（不含 <span class="mono">current/</span>）</td><td>视觉回归的对照基准</td></tr>
+</table>
+
+<h3>绝对不要带走（体积 + 安全）</h3>
+<table>
+<tr><th style="width:230px">排除项</th><th style="width:70px">体积</th><th>原因 / 到新机器怎么办</th></tr>
+<tr><td><span class="mono">.env</span>、<span class="mono">vision/.env</span></td><td>小</td><td><b>含生产账号密码和模型 key。</b>新机器重建，见第 4 节</td></tr>
+<tr><td><span class="mono">.venv/</span></td><td>60 MB</td><td>虚拟环境的解释器路径是绝对路径，换机器必坏。新机器重建</td></tr>
+<tr><td><span class="mono">vision/node_modules/</span></td><td>195 MB</td><td><b>含平台原生二进制（esbuild）。</b>跨平台拷过去会直接报错</td></tr>
+<tr><td><span class="mono">../node_modules/</span>（仓库根）</td><td>2.2 GB</td><td>同上，jest 依赖。新机器 <span class="mono">npm install</span></td></tr>
+<tr><td><span class="mono">vision/midscene_run/</span></td><td>1.4 GB</td><td><b>全是截图和录屏，含测试账号与密码输入过程。</b>只可内部使用，永不外发</td></tr>
+<tr><td><span class="mono">reports/ evidence/ screenshots/current/</span></td><td>20 MB</td><td>历史产物，新机器会重新生成</td></tr>
+</table>
+
+<div class="box">
+<p class="muted" style="margin:0">一个可直接用的拷贝命令（在仓库根执行，按需改目标路径）：</p>
+<pre><code>rsync -av --progress \
+  --exclude '.venv' --exclude '__pycache__' --exclude '*.pyc' \
+  --exclude '.pytest_cache' --exclude '.env' \
+  --exclude 'node_modules' \
+  --exclude 'midscene_run' --exclude 'reports' --exclude 'evidence' \
+  --exclude 'screenshots/current' \
+  ~/mono-capture/app-automation/  /目标路径/app-automation/</code></pre>
+</div>
+
+<h2 id="setup">3. 新机器从零搭起来</h2>
+
+<h3>3.1 前置条件</h3>
+<table>
+<tr><th style="width:130px">依赖</th><th style="width:110px">版本</th><th>说明</th></tr>
+<tr><td>macOS</td><td>—</td><td>脚本用 bash 3.2 写的，macOS 自带即可，不需要装新版 bash</td></tr>
+<tr><td>Python</td><td>≥ 3.9</td><td>系统自带 3.9 就能用</td></tr>
+<tr><td>Node</td><td>≥ 18</td><td>视觉层和 jest 都要</td></tr>
+<tr><td>Android platform-tools</td><td>—</td><td><span class="mono">adb</span> 要在 PATH 里</td></tr>
+<tr><td>安卓真机</td><td>Android 10+</td><td>开发者选项 + USB 调试打开，首次连接要在手机上点「允许」</td></tr>
+<tr><td>被测安装包</td><td><span class="mono">.apk</span></td><td>包名 <span class="mono">com.apex.collect</span>，问项目负责人要</td></tr>
+</table>
+
+<h3>3.2 五步搭起来</h3>
+
+<p><b>第一步 · 拷贝</b><br>
+按第 2 节的清单把目录拷过去，然后恢复脚本权限（拷贝常常会丢）：</p>
+<pre><code>cd /目标路径/app-automation
+chmod +x go.sh setup.sh install_app.sh
+ls -l go.sh          # 要能看到 -rwx，看不到就会报 permission denied</code></pre>
+
+<p><b>第二步 · 建两个 .env</b><br>
+<span class="mono">app-automation/.env</span> 抄自 <span class="mono">.env.example</span>，<span class="mono">vision/.env</span> 抄自 <span class="mono">vision/.env.example</span>。
+每一项的含义见第 4 节。<b>账号和密码只写在本地，不要提交、不要贴群里。</b></p>
+
+<p><b>第三步 · 装依赖</b></p>
+<pre><code>./setup.sh          # 建 .venv、装 python 依赖、装两处 node_modules
+./setup.sh --check-only   # 只检查不安装，随时可用</code></pre>
+
+<p><b>第四步 · 接设备、装包</b></p>
+<pre><code>adb devices                                   # 看到设备号且状态是 device
+./install_app.sh ~/Downloads/ApexCollect-x.x.x.apk
+./install_app.sh --all ~/path/app.apk         # 多台都装</code></pre>
+
+<p><b>第五步 · 先跑不碰设备的部分</b></p>
+<pre><code>./go.sh --quick      # 单元 + 门禁 + 接口，几十秒，不需要真机，不花钱</code></pre>
+
+<div class="ok">
+这一步全绿，说明环境、依赖、配置都对了，再去碰真机。真机那层要花时间和模型费用，别拿它当第一次验证。
+</div>
+
+<h2 id="config">4. 配置项说明</h2>
+
+<p>只需要两个文件。<b>下面不写具体值</b>——值属于项目，向负责人要。</p>
+
+<h3><span class="mono">app-automation/.env</span></h3>
+<table>
+<tr><th style="width:200px">键</th><th>作用</th></tr>
+<tr><td><span class="mono">QA_USERNAME</span> / <span class="mono">QA_PASSWORD</span></td><td><b>测试账号。</b>视觉层的登录、接口层的鉴权都用它。视觉层会自动映射成 <span class="mono">EGO_USERNAME</span> / <span class="mono">EGO_PASSWORD</span></td></tr>
+<tr><td><span class="mono">ANDROID_UDID</span></td><td>设备序列号。<b>换设备必改</b>，否则脚本拦下来报「配置里的设备不在线」</td></tr>
+<tr><td><span class="mono">ANDROID_APP_PACKAGE</span></td><td>包名，默认 <span class="mono">com.apex.collect</span></td></tr>
+<tr><td><span class="mono">QA_API_BASE</span></td><td>接口层用的后端地址</td></tr>
+<tr><td><span class="mono">QA_MAIN_SITE_HOST</span> / <span class="mono">QA_SERVER_ID</span></td><td>登录用的主站与服务器档位（新/旧服务器）</td></tr>
+<tr><td><span class="mono">QA_VIDEO_*</span>、<span class="mono">QA_QC_*</span>、<span class="mono">QA_GOLDEN_*</span></td><td>产物校验和黄金链路的参数（分辨率、QC 选项、录制时长）</td></tr>
+</table>
+
+<h3><span class="mono">vision/.env</span></h3>
+<table>
+<tr><th style="width:200px">键</th><th>作用</th></tr>
+<tr><td><span class="mono">MIDSCENE_MODEL_BASE_URL</span></td><td>模型中转地址，<b>要带 <span class="mono">/v1</span></b></td></tr>
+<tr><td><span class="mono">MIDSCENE_MODEL_API_KEY</span></td><td>模型 key，按次计费</td></tr>
+<tr><td><span class="mono">MIDSCENE_MODEL_NAME</span> / <span class="mono">MIDSCENE_MODEL_FAMILY</span></td><td>模型名与家族，两个要配套</td></tr>
+<tr><td><span class="mono">EGO_USERNAME</span> / <span class="mono">EGO_PASSWORD</span></td><td>可留空，留空就自动用 <span class="mono">QA_USERNAME</span></td></tr>
+<tr><td><span class="mono">MIDSCENE_ANDROID_DEVICE_ID</span></td><td>可留空，留空就用 <span class="mono">ANDROID_UDID</span></td></tr>
+</table>
+
+<div class="warn">
+<strong>空字符串不等于没设置。</strong><span class="mono">vision/.env</span> 里写 <span class="mono">MIDSCENE_RUN_DIR=""</span> 会让 Midscene 直接抛
+「run directory must be a non-empty path」——它只判断变量存不存在，不看内容。代码里已经把空的 <span class="mono">MIDSCENE_*</span> 删掉了，
+但你自己加新变量时注意别留空串。
+</div>
+
+<h2 id="map">5. 目录地图</h2>
+
+<table>
+<tr><th style="width:230px">路径</th><th>干什么</th></tr>
+<tr><td><span class="mono">go.sh</span></td><td><b>总入口。</b>环境检查 → 可选装包 → 跑三层 → 出报告并打开</td></tr>
+<tr><td><span class="mono">setup.sh</span></td><td>建 .venv、装依赖、检查 adb 与 .env、识别 node_modules 跨平台问题</td></tr>
+<tr><td><span class="mono">install_app.sh</span></td><td>装包 + 启动 + 确认前台</td></tr>
+<tr><td><span class="mono">core/</span></td><td>断言库、门禁、驱动工厂、结果汇总、规则编号（<span class="mono">rules.py</span>）</td></tr>
+<tr><td><span class="mono">pages/</span></td><td>Appium 页面对象；<span class="mono">ui_locators.py</span> 是<b>从源码生成</b>的，不要手改</td></tr>
+<tr><td><span class="mono">tests/</span></td><td>接口层与门禁用例。门禁用 <span class="mono">-m gate</span> 标记</td></tr>
+<tr><td><span class="mono">verification/</span></td><td><span class="mono">run_all.py</span> 合并三层出报告；<span class="mono">artifacts.py</span> 校验上传产物；<span class="mono">coverage.py</span> 是用例归属表</td></tr>
+<tr><td><span class="mono">vision/src/</span></td><td>视觉层 24 个模块：用例编译、执行、自愈、报告、审核、派生、设备与控件树工具，见下</td></tr>
+<tr><td><span class="mono">vision/cases/</span></td><td><span class="mono">cases.yaml</span> 手写用例、<span class="mono">derived.yaml</span> 源码派生、<span class="mono">policy.yaml</span> 执行顺序、<span class="mono">fragments.yaml</span> 片段</td></tr>
+<tr><td><span class="mono">自动化排障手册.md</span></td><td><b>先读这个。</b>失败归因三分法、断言写法、障碍表分层、成本分析</td></tr>
+<tr><td><span class="mono">vision/README.md</span></td><td>视觉层三层架构与各步骤说明</td></tr>
+</table>
+
+<h3>视觉层的三层，各管一段</h3>
+<table>
+<tr><th style="width:110px">层</th><th style="width:150px">文件</th><th>边界</th></tr>
+<tr><td>用例生成</td><td><span class="mono">plan.ts</span> / <span class="mono">derive.ts</span></td><td>YAML → 可执行计划并校验。<b>错一条，一条都不跑</b></td></tr>
+<tr><td>执行</td><td><span class="mono">run.ts</span></td><td>逐步交给 Midscene，<b>不带任何守卫</b>。不要往这里加判断，见第 8 节</td></tr>
+<tr><td>修正</td><td><span class="mono">heal.ts</span> / <span class="mono">patch.ts</span></td><td>卡住才读日志、写补丁、重跑验证，<b>最多 3 轮，只写数据</b></td></tr>
+</table>
+
+<h2 id="daily">6. 日常怎么跑</h2>
+
+<pre><code>./go.sh                        # 全部：代码层 + 视觉层（真机，40 分钟以上）
+./go.sh --quick                # 只跑代码层，几十秒，不碰设备
+./go.sh --check                # 只检查环境，不跑用例
+./go.sh --apk app.apk          # 先装包再跑
+./go.sh --device &lt;序列号&gt;       # 多台在线时指定跑哪台
+./go.sh --review               # 新项目接入：从源码派生冒烟用例 + 生成审核页
+./go.sh --import-review f.json # 把审核结果写回用例</code></pre>
+
+<p>视觉层单独跑（可以开自愈，<span class="mono">go.sh</span> 里为了控总时长是关掉的）：</p>
+<pre><code>cd vision
+npx tsx src/cli.ts --all                    # 全部，卡住自动修，最多 3 轮
+npx tsx src/cli.ts --cases AUTH-01 --no-heal    # 只跑一条，不修
+npx tsx src/cli.ts --tier smoke             # 只跑冒烟档
+npx tsx src/cli.ts --dry-run                # 只看计划，不碰设备
+npx tsx src/cli.ts --list                   # 列用例和顺序档位</code></pre>
+
+<h3>报告在哪</h3>
+<table>
+<tr><th style="width:280px">路径</th><th>内容</th></tr>
+<tr><td><span class="mono">vision/midscene_run/reports/all-latest.html</span></td><td><b>合并报告，看这个。</b>三层并成一张表，带审核状态</td></tr>
+<tr><td><span class="mono">vision/midscene_run/reports/latest.html</span></td><td>只有视觉层，含失败截图和录屏</td></tr>
+<tr><td><span class="mono">vision/midscene_run/last-run.json</span></td><td>视觉层的结构化结果，下游只认这个</td></tr>
+<tr><td><span class="mono">vision/midscene_run/logs/</span></td><td>各层完整日志，出事时先翻这里</td></tr>
+</table>
+
+<div class="danger">
+<strong>带媒体的报告只可内部使用。</strong>截图和录屏里有测试账号和密码的输入过程，
+<span class="mono">midscene_run/</span> 整个目录永远不要外发、不要提交、不要传到任何云端。
+</div>
+
+<h2 id="rewrite">7. 换项目时，哪些能带走</h2>
+
+<p>这套东西是按「换项目还能用」设计的，但项目知识带不走。下表决定复用到下一个项目的成本。</p>
+
+<h3>直接带走，一行不用改</h3>
+<p>三层骨架（<span class="mono">plan.ts</span> / <span class="mono">run.ts</span> / <span class="mono">heal.ts</span> / <span class="mono">patch.ts</span>）、
+报告生成、控件树工具、审核流程、源码派生、执行顺序规则、统一入口 <span class="mono">run_all.py</span>、三个 shell 脚本、
+以及 <span class="mono">自动化排障手册.md</span>。约 3300 行。</p>
+
+<h3>必须按新项目重写</h3>
+<table>
+<tr><th style="width:220px">文件</th><th style="width:70px">行数</th><th>为什么不能带走</th></tr>
+<tr><td><span class="mono">vision/src/appContext.ts</span></td><td>68</td><td>App 常识：有哪些 tab、哪些按钮危险。换个 App 全变</td></tr>
+<tr><td><span class="mono">vision/src/prepare.ts</span></td><td>170</td><td>前置状态怎么摆（清数据、补权限、回登录页、切服务器）</td></tr>
+<tr><td><span class="mono">vision/src/obstacles.project.ts</span></td><td>27</td><td>项目专属弹窗。「发现新版本」这种文案换个 App 就命中不了</td></tr>
+<tr><td><span class="mono">vision/src/login.ts</span></td><td>41</td><td>登录页判断与登录流程</td></tr>
+<tr><td><span class="mono">vision/cases/*.yaml</span></td><td>约 1000</td><td>用例本身，全是业务</td></tr>
+<tr><td><span class="mono">verification/artifacts.py</span></td><td>395</td><td>产物校验，绑定这个项目的上传接口和文件格式</td></tr>
+<tr><td><span class="mono">verification/coverage.py</span></td><td>—</td><td>50 条用例的归属表</td></tr>
+<tr><td><span class="mono">core/rules.py</span></td><td>—</td><td>规则编号，是「什么算对」的本体</td></tr>
+<tr><td><span class="mono">pages/</span></td><td>—</td><td>页面对象；<span class="mono">ui_locators.py</span> 可以从源码重新生成</td></tr>
+</table>
+
+<div class="box">
+<p style="margin:0"><b>接入新项目的最小流程：</b>
+① 填 <span class="mono">.env</span> ② 写 <span class="mono">appContext.ts</span> / <span class="mono">prepare.ts</span> ③
+<span class="mono">npx tsx src/cli.ts --derive</span> 从源码派生结构性冒烟 ④
+<span class="mono">--review-page</span> 生成审核页，人逐条过一遍 ⑤
+<span class="mono">--import-review</span> 写回 ⑥ 再跑全量。<br>
+<b>人只负责「什么算对」，机器负责摆状态、按顺序跑、取证、归因、出报告。</b></p>
+</div>
+
+<h2 id="known">8. 已知问题与未验证项</h2>
+
+<p>这一节比上面都重要。交接时不说清楚，接手的人会把「没验过」当成「跑通了」。</p>
+
+<table>
+<tr><th style="width:150px">事项</th><th style="width:80px">状态</th><th>说明</th></tr>
+<tr>
+  <td>测试账号不可用</td>
+  <td><span class="tag red">阻塞</span></td>
+  <td><span class="mono">QA_USERNAME=pss2</span> 登录报「账号或密码错误」，上一轮 4 条用例因此失败。必须换成可用账号才能跑视觉层</td>
+</tr>
+<tr>
+  <td><span class="mono">check-all</span> 修复</td>
+  <td><span class="tag amber">改完未验</span></td>
+  <td>上一版把整屏 61 个节点当复选框挨个点，把界面点进了协议文档页和「视频已失效」。已改成只认 <span class="mono">checkable="true"</span>，<b>还没上真机</b></td>
+</tr>
+<tr>
+  <td>门禁 4 条失败</td>
+  <td><span class="tag amber">改完未验</span></td>
+  <td>3 条是审核门禁的 <span class="mono">check()</span> 参数传错，1 条是自愈写入白名单漏了 <span class="mono">htmlPath</span>。已改，跑 <span class="mono">pytest -m gate</span> 可验</td>
+</tr>
+<tr>
+  <td>报告生成崩溃</td>
+  <td><span class="tag green">已修</span></td>
+  <td><span class="mono">run_all.py</span> 在「通过的用例」上取 <span class="mono">splitlines()[0]</span> 越界，导致视觉层跑完、报告写不出去。同时加了「开跑前删掉上次残留结果」，避免没跑成却显示旧数据</td>
+</tr>
+<tr>
+  <td>AUTH-04 会锁账号</td>
+  <td><span class="tag amber">设计如此</span></td>
+  <td>连续错 5 次锁 15 分钟。用同一个账号跑全量，跑完账号就锁了。<b>建议给它单独配一个账号，或跑全量时排除这条</b></td>
+</tr>
+<tr>
+  <td>派生用例的深链</td>
+  <td><span class="tag amber">部分失效</span></td>
+  <td><span class="mono">/earnings</span>、<span class="mono">/projects</span>、<span class="mono">/done</span> 用深链打开后仍停在首页，tab 路由没切过去。<span class="mono">/home</span>、<span class="mono">/login</span>、<span class="mono">/local-packages</span> 是好的</td>
+</tr>
+<tr>
+  <td>jest 10 条失败</td>
+  <td><span class="tag red">待查</span></td>
+  <td>3 个套件 10 条失败，报错在 <span class="mono">src/collectionUpload.ts:255</span>「交付包数据不完整」。属于 App 自身的单测，与自动化框架无关，但会一直红</td>
+</tr>
+<tr>
+  <td>登录前置超时</td>
+  <td><span class="tag red">待查</span></td>
+  <td>有 4 条报「等待登录页超时」，但现场描述是「当前为登录页面」，自相矛盾。怀疑是更新弹窗遮挡导致判断失败</td>
+</tr>
+<tr>
+  <td>40 条用例全部「未审核」</td>
+  <td><span class="tag amber">正常</span></td>
+  <td>报告顶部会写「N/M 条没过人工审核」。审核流程跑一遍就会消失</td>
+</tr>
+</table>
+
+<div class="warn">
+<strong>一条设计红线，交接时务必守住：</strong>执行层（<span class="mono">run.ts</span>）里不要加任何判断逻辑——
+不要「先读控件树再决定要不要问模型」这类优化。曾经试过，被明确否掉：那本质是把守卫层装回去，
+上一版正因为守卫层让 8 条用例烧了 195 次模型调用。要降成本只能动用例层、模型选择、或者整轮之外的调度。
+</div>
+
+<h2 id="pitfalls">9. 换机器一定会再踩的坑</h2>
+
+<table>
+<tr><th style="width:180px">现象</th><th style="width:240px">原因</th><th>怎么办</th></tr>
+<tr><td><span class="mono">./go.sh: permission denied</span></td><td>拷贝丢了可执行位</td><td><span class="mono">chmod +x go.sh setup.sh install_app.sh</span>，或临时用 <span class="mono">bash go.sh</span></td></tr>
+<tr><td>esbuild 报「installed for another platform」</td><td><span class="mono">node_modules</span> 跨平台拷贝</td><td>删 <span class="mono">vision/node_modules</span> 和 <span class="mono">package-lock.json</span> 重装。这是打包目录时最容易犯的错</td></tr>
+<tr><td><span class="mono">mapfile: command not found</span></td><td>macOS 自带 bash 3.2</td><td>脚本里已改用字符串处理，别改回去</td></tr>
+<tr><td>脚本变量变成乱码</td><td><span class="mono">$var</span> 后面紧跟全角括号，bash 会把括号当变量名</td><td>写 <span class="mono">${var}</span></td></tr>
+<tr><td>账号输进去了只剩最后一个字</td><td>输入法把按键收进候选区，只有最后一次提交落进输入框</td><td>已设 <span class="mono">imeStrategy: 'always-yadb'</span> 绕开输入法；输入后要读回核对。别改回默认策略</td></tr>
+<tr><td><span class="mono">pm clear</span> 后所有按钮点不动</td><td>清数据连带清了运行时权限</td><td>清完立刻补权限，代码里已做成成对操作</td></tr>
+<tr><td>用例顺序一改就集体失败</td><td>前一条的副作用带给了后一条</td><td><span class="mono">policy.yaml</span> 里 <span class="mono">order</span> 是必填的（normal / costly / destructive），漏写会在加载阶段直接报错</td></tr>
+<tr><td>换设备后视觉层起不来</td><td><span class="mono">ANDROID_UDID</span> 还是旧机器</td><td>改 <span class="mono">.env</span>，或跑 <span class="mono">./go.sh --device 新序列号</span></td></tr>
+<tr><td>报告里的数字对不上</td><td>50 是设计清单，视觉层实际 40 条</td><td>看报告副标题，会写清楚这一轮哪些层跑了</td></tr>
+</table>
+
+<h2 id="checklist">10. 交接检查单</h2>
+
+<p>接手的人照着勾，全勾上就算交接完成。</p>
+
+<ol class="check">
+<li>目录已拷到新机器，<span class="mono">go.sh</span> 有执行权限</li>
+<li><span class="mono">./setup.sh --check-only</span> 全部 ✓，没有 ✗</li>
+<li><span class="mono">.env</span> 与 <span class="mono">vision/.env</span> 已建好，账号密码是<b>可用的</b>那个</li>
+<li><span class="mono">adb devices</span> 能看到设备，<span class="mono">ANDROID_UDID</span> 与之一致</li>
+<li><span class="mono">./go.sh --quick</span> 跑通，单元 + 门禁 + 接口没有红</li>
+<li><span class="mono">./install_app.sh &lt;apk&gt;</span> 装包成功，App 能起来</li>
+<li>视觉层先跑单条：<span class="mono">npx tsx src/cli.ts --cases AUTH-01 --no-heal</span>，能通过</li>
+<li>跑一轮 <span class="mono">./go.sh</span>，<span class="mono">all-latest.html</span> 能正常生成（这一步同时验证了报告崩溃的修复）</li>
+<li>看过 <span class="mono">自动化排障手册.md</span>，知道失败先分环境 / 断言 / 产品三类</li>
+<li>知道 <span class="mono">midscene_run/</span> 含账号密码，永不外发</li>
+<li>拿到被测包的来源、可用测试账号、模型 key 的归属人</li>
+<li>确认第 8 节的 9 项已知问题，哪几项由谁跟</li>
+</ol>
+
+<footer>
+本文件自包含，可直接发给人或打印。生成于 2026-11-25。<br>
+代码与用例的最终状态以仓库里的文件为准；本文档描述的是交接当时的事实，之后如有改动，以改后的文件为准。
+</footer>
+
+</div>
+</body>
+</html>

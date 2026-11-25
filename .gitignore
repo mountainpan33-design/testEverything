@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+evidence/
+reports/
+# 视觉回归：保留基线，忽略每轮截图
+screenshots/current/
+
+# Midscene 视觉层
+vision/node_modules/
+vision/.env
+# .env 的备份同样带模型 key，别只拦 .env 本身
+vision/.env.bak*
+.env.bak*
+# 每跑一次都会被重写，提交进来只会天天产生无意义 diff
+vision/last-run.json
+# 报告里有截图和账号密码，永不外发
+vision/midscene_run/
+
+# 手改前的临时备份
+*.md.bak-*
+
+# 用例审核页由 --review-page 现生成，内容随用例变
+vision/projects/*/cases/review.html
+vision/projects/*/cases/review-result*.json

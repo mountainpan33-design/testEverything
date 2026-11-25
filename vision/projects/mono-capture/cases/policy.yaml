@@ -1,0 +1,104 @@
+# 用例的执行顺序与副作用声明。
+#
+# **每条用例都必须在这里声明 order**，不写就加载失败、一条都不跑。
+# 理由：一条会录视频、会锁账号的用例只要漏写，就会以 normal 的身份插到任意位置，
+# 把后面的用例一起带崩。默认值等于没有规则，所以强制显式声明。
+#
+# order 三档（R-GATE-05）：
+#   normal       快、无副作用，最先跑
+#   costly       要登录、真录视频/上传、耗额度，排在 normal 之后；必须写 why
+#   destructive  锁账号/删数据等破坏共享状态，**永远最后**；必须写 why + affects
+#
+# 可选：
+#   depends-on       依赖某条用例的产物；依赖没通过就跳过，不硬跑
+#   affects          destructive 跑完后，这些用例本轮直接跳过
+#   cooldown-minutes destructive 跑完后整个环境冷却多少分钟
+#   tier: smoke      每次提交跑的快检档
+
+# ================ normal：快、无副作用 ================
+
+ONB-01:
+  order: normal
+
+ONB-02:
+  order: normal
+
+ONB-04:
+  order: normal
+
+ONB-05:
+  order: normal
+
+AUTH-01:
+  order: normal
+  tier: smoke
+
+AUTH-02:
+  order: normal
+
+AUTH-03:
+  order: normal
+  tier: smoke
+
+AUTH-05:
+  order: normal
+
+AUTH-06:
+  order: normal
+  tier: smoke
+
+TASK-01:
+  order: normal
+
+TASK-02:
+  order: normal
+
+TASK-03:
+  order: normal
+
+CAP-01:
+  order: normal
+
+CAP-02:
+  order: normal
+
+I18N-01:
+  order: normal
+
+LP-04:
+  order: normal
+
+LP-05:
+  order: normal
+
+# ================ costly：要登录、耗额度 ================
+
+FLOW-01:
+  order: costly
+  why: 会真实录制一段视频并上传，消耗测试账号的录制额度
+
+QC-09:
+  order: costly
+  why: 会真实录制一段视频并上传，消耗测试账号的录制额度
+
+CAP-05:
+  order: costly
+  why: 需要进入录制页录一段视频，消耗测试账号的录制额度
+
+LP-01:
+  order: costly
+  why: 会录制一段视频后强杀进程，留下一个待恢复的交付包，消耗录制额度
+
+UP-04:
+  order: costly
+  why: 依赖真实上传任务，可能触发一次上传
+
+# ================ destructive：破坏共享状态，永远最后 ================
+
+AUTH-04:
+  order: destructive
+  why: 连续 5 次错误登录会把测试账号锁 15 分钟，期间所有依赖登录的用例都会失败
+  # 锁的是账号，不是某条用例：所有后续要登录的都会挂。
+  # 写 * 表示「除自己以外全部」——将来新增用例自动被覆盖，不用回来补这一行。
+  affects: '*'
+  cooldown-minutes: 15
